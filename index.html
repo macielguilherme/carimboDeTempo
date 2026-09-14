@@ -279,15 +279,12 @@
             }
 
             /* ============================================================
-               CORREÇÃO DOCZ-2245 — Regra Genérica desabilita Chave de Decisão
-               Atende: RN1, RN2, RN3, RN4, RN5, RN6, IU1
+               CORREÇÃO DOCZ-2245 — Regra Genérica
+               SOMENTE o campo "Chave de Decisão" é desabilitado/cinza.
                ============================================================ */
             function getDecisionFields(){
-                return [
-                    byId("decisionKeyField"),
-                    byId("decisionValueField"),
-                    byId("projectObjectField")
-                ];
+                // Apenas a Chave de Decisão é afetada pela Regra Genérica
+                return [byId("decisionKeyField")];
             }
 
             function applyGenericState(){
@@ -317,17 +314,17 @@
                 byId("ruleNameField").value=rule.name;
                 byId("genericRuleField").checked=rule.generic;
 
-                // RN5 — se for genérica, NÃO restaura valores de decisão
+                // RN5 — se for genérica, NÃO restaura o valor da Chave de Decisão
                 if (rule.generic) {
-                    getDecisionFields().forEach(function(el){
-                        el.value = "";
-                        delete el.dataset.previousValue;
-                    });
+                    byId("decisionKeyField").value = "";
+                    delete byId("decisionKeyField").dataset.previousValue;
                 } else {
                     byId("decisionKeyField").value = rule.decisionKey;
-                    byId("decisionValueField").value = rule.decisionValue;
-                    byId("projectObjectField").value = rule.projectObject;
                 }
+
+                // Os demais campos mantêm seus valores normalmente
+                byId("decisionValueField").value = rule.decisionValue;
+                byId("projectObjectField").value = rule.projectObject;
 
                 byId("autoSignatureField").checked=rule.autoSignature;
                 byId("visibleSignatureField").checked=rule.visibleSignature;
@@ -348,16 +345,16 @@
                 rule.name=byId("ruleNameField").value||"Regra sem nome";
                 rule.generic=byId("genericRuleField").checked;
 
-                // RN3 — quando Regra Genérica, ignora valores de decisão no salvamento
+                // RN3 — quando Regra Genérica, zera APENAS a Chave de Decisão
                 if (rule.generic) {
                     rule.decisionKey = "";
-                    rule.decisionValue = "";
-                    rule.projectObject = "";
                 } else {
-                    rule.decisionKey=byId("decisionKeyField").value;
-                    rule.decisionValue=byId("decisionValueField").value;
-                    rule.projectObject=byId("projectObjectField").value;
+                    rule.decisionKey = byId("decisionKeyField").value;
                 }
+
+                // Os demais campos são salvos normalmente
+                rule.decisionValue = byId("decisionValueField").value;
+                rule.projectObject = byId("projectObjectField").value;
 
                 rule.autoSignature=byId("autoSignatureField").checked;
                 rule.visibleSignature=byId("visibleSignatureField").checked;
@@ -443,7 +440,7 @@
 
             byId("fieldGroups").addEventListener("input",function(event){if(event.target.matches("[data-group-search]")){groupSearch[event.target.dataset.groupSearch]=event.target.value;var caret=event.target.selectionStart,groupId=event.target.dataset.groupSearch;renderFieldGroups();var replacement=document.querySelector('[data-group-search="'+groupId+'"]');if(replacement){replacement.focus();replacement.setSelectionRange(caret,caret);}}});
 
-            /* Save automático nos campos do form (mantido) */
+            /* Save automático nos campos do form */
             byId("configForm").addEventListener("input",saveConfig);
             byId("configForm").addEventListener("change",saveConfig);
 
@@ -475,12 +472,10 @@
                     return;
                 }
 
-                // Se for genérica, garante que os campos de decisão vão vazios
+                // Se for genérica, zera APENAS a Chave de Decisão
                 if (isGeneric) {
-                    getDecisionFields().forEach(function(el){
-                        el.value = "";
-                        delete el.dataset.previousValue;
-                    });
+                    byId("decisionKeyField").value = "";
+                    delete byId("decisionKeyField").dataset.previousValue;
                 }
 
                 saveConfig();
@@ -491,7 +486,7 @@
             });
 
             /* ============================================================
-               BOTÃO RESTAURAR (opcional — desfaz alterações não salvas)
+               BOTÃO RESTAURAR
                ============================================================ */
             byId("resetRuleBtn").addEventListener("click", function () {
                 fillConfig();
