@@ -80,12 +80,15 @@
         .requires { color: #d36c00 !important; }
         .section-title { margin: 19px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; color: #4d535b; font-weight: 700; }
         .status-grid { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+        .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
         .meta-panel { margin-top: 22px; }
         .meta-head { justify-content: space-between; }
         .meta-head-copy { display: flex; align-items: center; gap: 12px; }
         .meta-head-copy p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
         .primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 0 15px; border: 0; border-radius: 8px; color: #fff; background: var(--green); font-size: 12px; font-weight: 750; }
         .primary:hover { background: var(--green-dark); }
+        .primary.blue { background: #0b57e3; }
+        .primary.blue:hover { background: #0948bd; }
         .table-filter { padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--surface-soft); }
         .table-filter label { display: inline-flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 650; color: #545a62; }
         .table-filter input { width: 310px; height: 38px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; background: #fff; }
@@ -149,6 +152,8 @@
             .group-search { width: 100%; }
             .table-filter input { width: min(100%, 310px); }
             .table-footer { align-items: flex-start; flex-direction: column; }
+            .form-actions { flex-direction: column-reverse; }
+            .form-actions button { width: 100%; }
         }
     </style>
 </head>
@@ -194,8 +199,9 @@
                         <div class="field"><label for="finalStatusField">Status Final pós Assinatura</label><select id="finalStatusField" class="control"><option>INDEXADO</option><option>ASSINADO</option><option>ENVIADO PARA PRESERVAÇÃO</option></select></div>
                         <div class="field"><label for="ruleStatusField">Status da Regra</label><select id="ruleStatusField" class="control"><option>Rascunho</option><option>Ativa</option><option>Inativa</option></select></div>
                     </div>
-                    <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:16px; margin-top:16px; border-top:1px solid var(--line);">
-                        <button id="saveRuleBtn" class="primary" type="button">Salvar Regra</button>
+                    <div class="form-actions">
+                        <button id="resetRuleBtn" class="cancel" type="button">Restaurar</button>
+                        <button id="saveRuleBtn" class="primary blue" type="button">Salvar Regra</button>
                     </div>
                 </form>
             </section>
@@ -274,27 +280,28 @@
 
             /* ============================================================
                CORREÇÃO DOCZ-2245 — Regra Genérica desabilita Chave de Decisão
+               Atende: RN1, RN2, RN3, RN4, RN5, RN6, IU1
                ============================================================ */
-            function applyGenericState(){
-                var isGeneric = byId("genericRuleField").checked;
-                var fields = [
+            function getDecisionFields(){
+                return [
                     byId("decisionKeyField"),
                     byId("decisionValueField"),
                     byId("projectObjectField")
                 ];
+            }
 
-                fields.forEach(function(el){
+            function applyGenericState(){
+                var isGeneric = byId("genericRuleField").checked;
+                getDecisionFields().forEach(function(el){
                     if (!el) return;
                     el.disabled = isGeneric;
 
                     if (isGeneric) {
-                        // RN3 — guarda o valor anterior e limpa (desconsidera p/ validação/salvamento)
-                        if (el.value) {
-                            el.dataset.previousValue = el.value;
-                        }
+                        // RN3 — guarda valor anterior e limpa
+                        if (el.value) el.dataset.previousValue = el.value;
                         el.value = "";
                     } else {
-                        // RN4 — restaura o valor anterior, se houver
+                        // RN4 — restaura valor anterior
                         if (el.dataset.previousValue) {
                             el.value = el.dataset.previousValue;
                             delete el.dataset.previousValue;
@@ -305,18 +312,31 @@
 
             function fillConfig(){
                 var rule=currentRule(); if(!rule)return;
-                byId("projectField").value=rule.project; byId("ruleNameField").value=rule.name; byId("genericRuleField").checked=rule.generic;
-                byId("decisionKeyField").value=rule.decisionKey; byId("decisionValueField").value=rule.decisionValue; byId("projectObjectField").value=rule.projectObject;
-                byId("autoSignatureField").checked=rule.autoSignature; byId("visibleSignatureField").checked=rule.visibleSignature; byId("lastPageField").checked=rule.lastPage;
-                byId("requireTypologyField").checked=rule.requireTypology; byId("timestampField").checked=rule.timestamp; byId("activationField").checked=rule.activation;
-                byId("finalStatusField").value=rule.finalStatus; byId("ruleStatusField").value=rule.status;
 
-                // Se já vem como genérica (edição), NÃO restaura o valor anterior dos campos de decisão
+                byId("projectField").value=rule.project;
+                byId("ruleNameField").value=rule.name;
+                byId("genericRuleField").checked=rule.generic;
+
+                // RN5 — se for genérica, NÃO restaura valores de decisão
                 if (rule.generic) {
-                    byId("decisionKeyField").value = "";
-                    byId("decisionValueField").value = "";
-                    byId("projectObjectField").value = "";
+                    getDecisionFields().forEach(function(el){
+                        el.value = "";
+                        delete el.dataset.previousValue;
+                    });
+                } else {
+                    byId("decisionKeyField").value = rule.decisionKey;
+                    byId("decisionValueField").value = rule.decisionValue;
+                    byId("projectObjectField").value = rule.projectObject;
                 }
+
+                byId("autoSignatureField").checked=rule.autoSignature;
+                byId("visibleSignatureField").checked=rule.visibleSignature;
+                byId("lastPageField").checked=rule.lastPage;
+                byId("requireTypologyField").checked=rule.requireTypology;
+                byId("timestampField").checked=rule.timestamp;
+                byId("activationField").checked=rule.activation;
+                byId("finalStatusField").value=rule.finalStatus;
+                byId("ruleStatusField").value=rule.status;
 
                 applyGenericState();
             }
@@ -328,7 +348,7 @@
                 rule.name=byId("ruleNameField").value||"Regra sem nome";
                 rule.generic=byId("genericRuleField").checked;
 
-                // RN3 — quando Regra Genérica, ignora valores de Chave de Decisão no salvamento
+                // RN3 — quando Regra Genérica, ignora valores de decisão no salvamento
                 if (rule.generic) {
                     rule.decisionKey = "";
                     rule.decisionValue = "";
@@ -339,9 +359,14 @@
                     rule.projectObject=byId("projectObjectField").value;
                 }
 
-                rule.autoSignature=byId("autoSignatureField").checked; rule.visibleSignature=byId("visibleSignatureField").checked; rule.lastPage=byId("lastPageField").checked;
-                rule.requireTypology=byId("requireTypologyField").checked; rule.timestamp=byId("timestampField").checked; rule.activation=byId("activationField").checked;
-                rule.finalStatus=byId("finalStatusField").value; rule.status=byId("ruleStatusField").value;
+                rule.autoSignature=byId("autoSignatureField").checked;
+                rule.visibleSignature=byId("visibleSignatureField").checked;
+                rule.lastPage=byId("lastPageField").checked;
+                rule.requireTypology=byId("requireTypologyField").checked;
+                rule.timestamp=byId("timestampField").checked;
+                rule.activation=byId("activationField").checked;
+                rule.finalStatus=byId("finalStatusField").value;
+                rule.status=byId("ruleStatusField").value;
 
                 applyGenericState();
                 renderRules();
@@ -418,13 +443,59 @@
 
             byId("fieldGroups").addEventListener("input",function(event){if(event.target.matches("[data-group-search]")){groupSearch[event.target.dataset.groupSearch]=event.target.value;var caret=event.target.selectionStart,groupId=event.target.dataset.groupSearch;renderFieldGroups();var replacement=document.querySelector('[data-group-search="'+groupId+'"]');if(replacement){replacement.focus();replacement.setSelectionRange(caret,caret);}}});
 
+            /* Save automático nos campos do form (mantido) */
             byId("configForm").addEventListener("input",saveConfig);
             byId("configForm").addEventListener("change",saveConfig);
 
             /* ============================================================
-               Evento explícito do checkbox "Regra Genérica"
+               EVENTO EXPLÍCITO da checkbox Regra Genérica
                ============================================================ */
-            byId("genericRuleField").addEventListener("change", applyGenericState);
+            byId("genericRuleField").addEventListener("change", function () {
+                applyGenericState();
+                saveConfig();
+            });
+
+            /* ============================================================
+               BOTÃO SALVAR REGRA (F3)
+               Permite salvar Regra Genérica SEM Chave de Decisão
+               ============================================================ */
+            byId("saveRuleBtn").addEventListener("click", function () {
+                var rule = currentRule();
+                if (!rule) {
+                    alert("Nenhuma regra selecionada.");
+                    return;
+                }
+
+                var isGeneric = byId("genericRuleField").checked;
+
+                // Se NÃO for genérica, Chave de Decisão é obrigatória
+                if (!isGeneric && !byId("decisionKeyField").value) {
+                    alert("Chave de Decisão é obrigatória para regras não genéricas.");
+                    byId("decisionKeyField").focus();
+                    return;
+                }
+
+                // Se for genérica, garante que os campos de decisão vão vazios
+                if (isGeneric) {
+                    getDecisionFields().forEach(function(el){
+                        el.value = "";
+                        delete el.dataset.previousValue;
+                    });
+                }
+
+                saveConfig();
+
+                alert(isGeneric
+                    ? "Regra Genérica salva com sucesso! (sem Chave de Decisão)"
+                    : "Regra salva com sucesso!");
+            });
+
+            /* ============================================================
+               BOTÃO RESTAURAR (opcional — desfaz alterações não salvas)
+               ============================================================ */
+            byId("resetRuleBtn").addEventListener("click", function () {
+                fillConfig();
+            });
 
             byId("sourceField").addEventListener("change",updateSourceState);
             byId("nullTreatmentField").addEventListener("change",function(){var enabled=this.value==="Substituir por Valor Padrão";byId("nullDefaultField").disabled=!enabled;if(!enabled)byId("nullDefaultField").value="";});
@@ -437,55 +508,7 @@
             document.addEventListener("keydown",function(event){if(event.key==="Escape"&&byId("metadataModal").classList.contains("show"))closeModal();});
             byId("previousPage").addEventListener("click",function(){if(page>1){page--;renderTable();}});
             byId("nextPage").addEventListener("click",function(){var max=Math.max(1,Math.ceil(filteredRows().length/pageSize));if(page<max){page++;renderTable();}});
-            /* ============================================================
-               BOTÃO SALVAR REGRA (F3 — permite salvar Regra Genérica sem Chave)
-               ============================================================ */
-            byId("saveRuleBtn").addEventListener("click", function () {
-                var rule = currentRule();
-                if (!rule) {
-                    alert("Nenhuma regra selecionada.");
-                    return;
-                }
 
-                // Atualiza o objeto com o estado atual do form
-                rule.project = byId("projectField").value;
-                rule.name = byId("ruleNameField").value || "Regra sem nome";
-                rule.generic = byId("genericRuleField").checked;
-
-                if (rule.generic) {
-                    // F3 — Regra Genérica: NÃO exige Chave de Decisão
-                    rule.decisionKey = "";
-                    rule.decisionValue = "";
-                    rule.projectObject = "";
-                } else {
-                    // Regra normal: valida Chave de Decisão
-                    var chave = byId("decisionKeyField").value;
-                    if (!chave) {
-                        alert("Chave de Decisão é obrigatória para regras não genéricas.");
-                        byId("decisionKeyField").focus();
-                        return;
-                    }
-                    rule.decisionKey = chave;
-                    rule.decisionValue = byId("decisionValueField").value;
-                    rule.projectObject = byId("projectObjectField").value;
-                }
-
-                rule.autoSignature = byId("autoSignatureField").checked;
-                rule.visibleSignature = byId("visibleSignatureField").checked;
-                rule.lastPage = byId("lastPageField").checked;
-                rule.requireTypology = byId("requireTypologyField").checked;
-                rule.timestamp = byId("timestampField").checked;
-                rule.activation = byId("activationField").checked;
-                rule.finalStatus = byId("finalStatusField").value;
-                rule.status = byId("ruleStatusField").value;
-
-                applyGenericState();
-                renderRules();
-
-                alert(rule.generic
-                    ? "Regra Genérica salva com sucesso! (sem Chave de Decisão)"
-                    : "Regra salva com sucesso!");
-            });
             byId("newRuleBtn").addEventListener("click",function(){
                 var id=rules.length?Math.max.apply(null,rules.map(function(rule){return rule.id;}))+1:1;
                 rules.push({id:id,name:"Nova Regra "+id,status:"Rascunho",generic:false,project:"ANM NACIONAL - REGIONAL SP",decisionKey:"",decisionValue:"",projectObject:"",autoSignature:false,visibleSignature:false,lastPage:false,requireTypology:false,timestamp:false,activation:false,finalStatus:"INDEXADO",rows:[]});
